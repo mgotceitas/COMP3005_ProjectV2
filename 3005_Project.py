@@ -70,11 +70,35 @@ def displayDashboard(conn, curs, memberID):
     goalWeight = str(curs.fetchone()).strip("(),")
     weightDiff = abs(int(currentWeight) - int(goalWeight))
 
-    print("You are only " + str(weightDiff) + " lbs away from your goal weight!")
+    print("Only " + str(weightDiff) + " lbs away from goal weight.")
 
     curs.execute("SELECT bmi FROM Members WHERE member_id = " + memberID)
-    print("Your current bmi is: " + str(curs.fetchone()).strip("(),"))
+    print("Current bmi is: " + str(curs.fetchone()).strip("(),"))
 
+def viewMember(conn, curs):
+    ln = input("What is the last name of the member who's profile you would like to view? ")
+    curs.execute("SELECT member_id, first_name, last_name FROM Members WHERE last_name = '" + ln + "'")
+    print("")
+
+    while(cursor.rowcount == 0):
+        print("ERROR: Last name number does not belong to any member.")
+                
+        ln = input("What is the last name of the member who's profile you would like to view? ")
+        curs.execute("SELECT member_id, first_name, last_name FROM Members WHERE last_name = '" + ln + "'")
+        print("")
+
+    cursList = str(curs.fetchall()).replace("[", "").replace("]", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", "").split(", ")
+    memberList = []
+    
+    for index, element in enumerate(cursList[::2]):
+        memberList.append(cursList[2 * index + 1] + ", member ID: " + element)
+        
+    trainerChoice = showMenu("WHICH MEMBER'S PROFILE WOULD YOU LIKE TO VIEW?", memberList)
+    memberID = cursList[trainerChoice * 2]
+
+    print(cursList[trainerChoice * 2 + 1] + "'s Dashboard:")
+    displayDashboard(conn, curs, memberID)
+    
 try:
     connection = psycopg.connect("dbname=3005_Project user=postgres password=ILove3005")
 except BaseException:
@@ -116,5 +140,26 @@ else:
             manageMemberProfile(connection, cursor, userID)
         elif(userChoice == 1):
             displayDashboard(connection, cursor, userID)
+            
+    elif(userChoice == 1):
+        userTable = "Trainers"
+
+        userID = input("What is your trainer ID? ")
+        cursor.execute("SELECT * FROM Members WHERE member_id = " + userID)
+        print("")
+
+        while(cursor.rowcount == 0):
+            print("ERROR: ID number does not belong to any member.")
+                
+            userID = input("What is your member ID? ")
+            cursor.execute("SELECT * FROM Members WHERE member_id = " + userID)
+            print("")
+
+        userChoice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Manage Schedule", "View Member Profile"])
+
+        if(userChoice == 0):
+            manageTrainerSchedule(connection, cursor, userID)
+        elif(userChoice == 1):
+            viewMember(connection, cursor)
 
     connection.close() # Closes the connection to the database
