@@ -27,10 +27,21 @@ CREATE TABLE Sessions (
     session_id      SERIAL    PRIMARY KEY,
     member_id		    INT		    NOT NULL,
     trainer_id	    INT		    NOT NULL,
-    start_time      TIME      NOT NULL,
+    routine_id      INT      NOT NULL,
 
     FOREIGN KEY (member_id)
 		  REFERENCES Members (member_id),
+    FOREIGN KEY (trainer_id)
+		  REFERENCES Trainers (trainer_id)
+);
+
+CREATE TABLE Availabilities (
+    availability_id  SERIAL      PRIMARY KEY,
+    trainer_id  INT     NOT NULL,
+    day_of_week  VARCHAR(255)    NOT NULL,
+    start_time   TIME    NOT NULL,
+    end_time   TIME    NOT NULL,
+
     FOREIGN KEY (trainer_id)
 		  REFERENCES Trainers (trainer_id)
 );
