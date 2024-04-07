@@ -96,19 +96,42 @@ def manageMemberSchedule(conn, curs, memberID):
         startTime = 6 + showMenu("WHEN WOULD YOU LIKE YOUR SESSION TO START (Availability will go from this time to 2 hours ahead)?", ["06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"])
         endTime = startTime + 2
         
-        curs.execute("SELECT availability_id, trainer_id FROM Availabilities WHERE day_of_week = '" + weekDay + "' AND start_time <= '" + str(startTime) + ":00' AND end_time >= '" + str(endTime) + ":00'")
-        cursList = str(curs.fetchall()).replace("[", "").replace("]", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", "").replace("datetime.time", "").split(", ")
+        curs.execute("SELECT trainer_id FROM Availabilities WHERE day_of_week = '" + weekDay + "' AND start_time <= '" + str(startTime) + ":00' AND end_time >= '" + str(endTime) + ":00' GROUP BY trainer_id EXCEPT SELECT trainer_id FROM Sessions sessions WHERE start_time = '" + str(startTime) + ":00' OR start_time = '" + str(startTime + 1) + ":00' OR start_time = '" + str(startTime - 1) + ":00' GROUP BY trainer_id")
+        cursList = str(curs.fetchall()).replace("[", "").replace("]", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", "").replace(",", "").split(", ")
+
+        if(curs.rowcount == 0):
+            print("NO TRAINERS AVAILABLE FOR THE DAY/TIME DESIRED")
+        else:
+            avList = []
+            curs.execute("SELECT first_name, last_name FROM Trainers WHERE trainer_id = " + cursList[index])
+            
+            for index, element in enumerate(cursList):
+                avList.append(str(curs.fetchone()).replace(",", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", ""))
+
+            memberChoice = showMenu("WHICH TRAINER WOULD YOU LIKE FOR YOUR SESSION?", avList)
+            trainerID = cursList[memberChoice]
+
+            curs.execute("INSERT INTO Sessions (session_id, trainer_id, member_id, start_time) VALUES (DEFAULT, " + trainerID + ", " + memberID + ", '" + str(startTime) + ":00')")
+            conn.commit()
+    else:
+        curs.execute("SELECT class_id, class_name, class_day, start_time, end_time FROM Classes")
+        cursList = str(curs.fetchall()).replace("[", "").replace("]", "").replace("(", "").replace(")", "").replace("'", "").replace("datetime.time", "").split(", ")
         avList = []
+            
+        if(curs.rowcount == 0):
+            print("NO CLASSES CURRENTLY AVAILABLE")
+        else:
+            for index, element in enumerate(cursList[::7]):
+                avList.append(cursList[7 * index + 1] + " | Every " + cursList[7 * index + 2] + " from " + "%02d" % int(cursList[7 * index + 3]) + ":" + "%02d" % int(cursList[7 * index + 4]) + " to " + "%02d" % int(cursList[7 * index + 5]) + ":" + "%02d" % int(cursList[7 * index + 6]))
 
-        for index, element in enumerate(cursList[::2]):
-            curs.execute("SELECT first_name, last_name FROM Trainers WHERE trainer_id = " + cursList[2 * index + 1])
-            avList.append(str(curs.fetchone()).replace(",", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", ""))
+            avList.insert(0, "None")
+            memberChoice = showMenu("WHICH CLASS WOULD YOU LIKE TO SIGN UP FOR?", avList)
 
-        memberChoice = showMenu("WHICH TRAINER WOULD YOU LIKE FOR YOUR SESSION?", avList)
-        trainerID = cursList[memberChoice * 2 + 1]
-
-        curs.execute("INSERT INTO Sessions (session_id, trainer_id, member_id, start_time) VALUES (DEFAULT, " + trainerID + ", " + memberID + ", '" + str(startTime) + ":00')")
-        conn.commit()
+            if(memberChoice != 0):
+                classID = cursList[7 * (memberChoice - 1)]
+                
+                curs.execute("INSERT INTO Registrations (registration_id, class_id, member_id) VALUES (DEFAULT, " + classID + ", " + memberID + ")")
+                conn.commit()
 
 def manageTrainerSchedule(conn, curs, trainerID):
     choice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Remove Availability", "Add Availability"])

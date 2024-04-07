@@ -51,6 +51,7 @@ CREATE TABLE Classes (
     trainer_id	    INT		    NOT NULL,
     class_day       VARCHAR(255)    NOT NULL UNIQUE,
     start_time      TIME      NOT NULL,
+    end_time      TIME      NOT NULL,
     class_name      VARCHAR(255)    NOT NULL UNIQUE,
 
     FOREIGN KEY (trainer_id)
@@ -60,7 +61,7 @@ CREATE TABLE Classes (
 CREATE TABLE Registrations (
     registration_id      SERIAL    PRIMARY KEY,
     class_id     INT		    NOT NULL,
-    member_id	   INT		    NOT NULL,
+    member_id	   INT		    UNIQUE NOT NULL,
 
     FOREIGN KEY (class_id)
 		  REFERENCES Classes (class_id),
