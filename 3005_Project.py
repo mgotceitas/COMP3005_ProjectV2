@@ -5,11 +5,6 @@ continueProgram = True
 userChoice = 0
 userTable = ""
 userID = -1
-userFN = ""
-userLN = ""
-userGoalWeight = ""
-userCurrWeight = ""
-userBMI = ""
 
 def showMenu(title, options):
     choice = -1
@@ -28,14 +23,20 @@ def showMenu(title, options):
 
     return choice
 
-def registerMember(conn, curs, fn, ln, goalWeight, currWeight, bmi):
+def registerMember(conn, curs):
+    fn = input("What is your first name? ")
+    ln = input("What is your last name? ")
+    goalWeight = input("What is your goal weight? ")
+    currWeight = input("What is your current weight? ")
+    bmi = input("What is your BMI? ")
+            
     time = str(datetime.now())
     curs.execute("INSERT INTO Members (member_id, first_name, last_name, goal_weight, current_weight, bmi, registration_time) VALUES (DEFAULT, '" + fn + "', '" + ln + "', " + goalWeight + ", " + currWeight + ", " + bmi + ", '" + time + "')")
     conn.commit()
     curs.execute("SELECT member_id FROM Members WHERE registration_time = '" + time + "'")
 
     memberID = str(cursor.fetchone()).strip("(),")
-    print("Your user ID number is: " + memberID)
+    print("\nProfile created! Your user ID number is: " + memberID + "\n")
 
     return memberID
 
@@ -59,6 +60,7 @@ def manageMemberProfile(conn, curs, memberID):
         memberInput = input("Enter your current BMI: ")
         curs.execute("UPDATE Members SET bmi = " + memberInput + " WHERE member_id = " + memberID)
 
+    print("\nProfile successfully updated!\n")
     conn.commit()
 
 def displayDashboard(conn, curs, memberID):
@@ -73,46 +75,112 @@ def displayDashboard(conn, curs, memberID):
     print("Only " + str(weightDiff) + " lbs away from goal weight.")
 
     curs.execute("SELECT bmi FROM Members WHERE member_id = " + memberID)
-    print("Current bmi is: " + str(curs.fetchone()).strip("(),"))
+    print("Current bmi is: " + str(curs.fetchone()).strip("(),") + "\n")
 
 def manageMemberSchedule(conn, curs, memberID):
     choice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Schedule Personal Training Session", "Register For Group Fitness Class"])
 
     if(choice == 0):
-        weekDay = ""
-        choice = showMenu("WHICH DAY OF THE WEEK WOULD YOU LIKE TO BOOK A SESSION FOR?", ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"])
-
+        choice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Sign Up For Personal Training Session", "Reschedule Personal Training Session", "Cancel Personal Training Session"])
         if(choice == 0):
-            weekDay = "Monday"
+            weekDay = ""
+            choice = showMenu("WHICH DAY OF THE WEEK WOULD YOU LIKE TO BOOK A SESSION FOR?", ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"])
+
+            if(choice == 0):
+                weekDay = "Monday"
+            elif(choice == 1):
+                weekDay = "Tuesday"
+            elif(choice == 2):
+                weekDay = "Wednesday"
+            elif(choice == 3):
+                weekDay = "Thursday"
+            else:
+                weekDay = "Friday"
+
+            startTime = 6 + showMenu("WHEN WOULD YOU LIKE YOUR SESSION TO START (Availability will go from this time to 2 hours ahead)?", ["06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"])
+            endTime = startTime + 2
+                
+            curs.execute("SELECT trainer_id FROM Availabilities WHERE day_of_week = '" + weekDay + "' AND start_time <= '" + str(startTime) + ":00' AND end_time >= '" + str(endTime) + ":00' GROUP BY trainer_id EXCEPT SELECT trainer_id FROM Sessions sessions WHERE start_time = '" + str(startTime) + ":00' OR start_time = '" + str(startTime + 1) + ":00' OR start_time = '" + str(startTime - 1) + ":00' GROUP BY trainer_id")
+            cursList = str(curs.fetchall()).replace("[", "").replace("]", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", "").replace(",", "").split(", ")
+
+            if(curs.rowcount == 0):
+                print("ERROR: NO TRAINERS AVAILABLE FOR THE DAY/TIME DESIRED")
+            else:
+                avList = []
+                    
+                for index, element in enumerate(cursList):
+                    curs.execute("SELECT first_name, last_name FROM Trainers WHERE trainer_id = " + cursList[index])
+                    avList.append(str(curs.fetchone()).replace(",", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", ""))
+
+                memberChoice = showMenu("WHICH TRAINER WOULD YOU LIKE FOR YOUR SESSION?", avList)
+                trainerID = cursList[memberChoice]
+
+                print("Session successfully scheduled!")
+                curs.execute("INSERT INTO Sessions (session_id, trainer_id, member_id, day_of_week, start_time) VALUES (DEFAULT, " + trainerID + ", " + memberID + ", '" + weekDay + "', '" + str(startTime) + ":00')")
+                conn.commit()
         elif(choice == 1):
-            weekDay = "Tuesday"
-        elif(choice == 2):
-            weekDay = "Wednesday"
-        elif(choice == 3):
-            weekDay = "Thursday"
+            curs.execute("SELECT session_id, trainer_id, day_of_week, start_time FROM Sessions WHERE member_id = " + str(memberID))
+            cursList = str(curs.fetchall()).replace("[", "").replace("]", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", "").replace("datetime.time", "").split(", ")
+
+            if(curs.rowcount == 0):
+                print("ERROR: YOU HAVE NO SCHEDULED SESSIONS")
+            else:
+                avList = []
+                
+                for index, element in enumerate(cursList[::5]):
+                    curs.execute("SELECT first_name, last_name FROM Trainers WHERE trainer_id = " + cursList[5 * index + 1])
+                    avList.append("%02d" % int(cursList[5 * index + 3]) + ":" + "%02d" % int(cursList[5 * index + 4]) + " | Every " + cursList[5 * index + 2] + " with " + str(curs.fetchone()).replace(",", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", ""))
+
+                memberChoice = showMenu("WHICH SESSION WOULD YOU LIKE TO RESCHEDULE?", avList)
+                sessionID = cursList[5 * memberChoice]
+                trainerID = cursList[5 * memberChoice + 1]
+
+                weekDay = ""
+                choice = showMenu("WHICH DAY OF THE WEEK WOULD YOU LIKE TO BOOK A RESCHEDULE ON?", ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"])
+
+                if(choice == 0):
+                    weekDay = "Monday"
+                elif(choice == 1):
+                    weekDay = "Tuesday"
+                elif(choice == 2):
+                    weekDay = "Wednesday"
+                elif(choice == 3):
+                    weekDay = "Thursday"
+                else:
+                    weekDay = "Friday"
+
+                startTime = 6 + showMenu("WHEN WOULD YOU LIKE YOUR SESSION TO START (Availability will go from this time to 2 hours ahead)?", ["06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"])
+                endTime = startTime + 2
+
+                curs.execute("SELECT trainer_id FROM Availabilities WHERE day_of_week = '" + weekDay + "' AND start_time <= '" + str(startTime) + ":00' AND end_time >= '" + str(endTime) + ":00' AND trainer_id = " + str(trainerID) + " GROUP BY trainer_id EXCEPT SELECT trainer_id FROM Sessions sessions WHERE session_id != " + str(sessionID) + " AND (start_time = '" + str(startTime) + ":00' OR start_time = '" + str(startTime + 1) + ":00' OR start_time = '" + str(startTime - 1) + ":00') GROUP BY trainer_id")
+                cursList = str(curs.fetchall()).replace("[", "").replace("]", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", "").replace(",", "").split(", ")
+
+                if(curs.rowcount == 0):
+                    print("ERROR: TRAINER NOT AVAILABLE FOR THE DAY/TIME DESIRED")
+                else:
+                    print("Session successfully rescheduled!")
+                    curs.execute("UPDATE Sessions SET start_time = '" + str(startTime) + ":00' WHERE session_id = " + sessionID)
+                    conn.commit()
         else:
-            weekDay = "Friday"
+            curs.execute("SELECT session_id, trainer_id, day_of_week, start_time FROM Sessions WHERE member_id = " + str(memberID))
+            cursList = str(curs.fetchall()).replace("[", "").replace("]", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", "").replace("datetime.time", "").split(", ")
 
-        startTime = 6 + showMenu("WHEN WOULD YOU LIKE YOUR SESSION TO START (Availability will go from this time to 2 hours ahead)?", ["06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"])
-        endTime = startTime + 2
-        
-        curs.execute("SELECT trainer_id FROM Availabilities WHERE day_of_week = '" + weekDay + "' AND start_time <= '" + str(startTime) + ":00' AND end_time >= '" + str(endTime) + ":00' GROUP BY trainer_id EXCEPT SELECT trainer_id FROM Sessions sessions WHERE start_time = '" + str(startTime) + ":00' OR start_time = '" + str(startTime + 1) + ":00' OR start_time = '" + str(startTime - 1) + ":00' GROUP BY trainer_id")
-        cursList = str(curs.fetchall()).replace("[", "").replace("]", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", "").replace(",", "").split(", ")
+            if(curs.rowcount == 0):
+                print("ERROR: YOU HAVE NO SCHEDULED SESSIONS")
+            else:
+                avList = []
+                
+                for index, element in enumerate(cursList[::5]):
+                    curs.execute("SELECT first_name, last_name FROM Trainers WHERE trainer_id = " + cursList[5 * index + 1])
+                    avList.append("%02d" % int(cursList[5 * index + 3]) + ":" + "%02d" % int(cursList[5 * index + 4]) + " | Every " + cursList[5 * index + 2] + " with " + str(curs.fetchone()).replace(",", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", ""))
 
-        if(curs.rowcount == 0):
-            print("NO TRAINERS AVAILABLE FOR THE DAY/TIME DESIRED")
-        else:
-            avList = []
-            curs.execute("SELECT first_name, last_name FROM Trainers WHERE trainer_id = " + cursList[index])
-            
-            for index, element in enumerate(cursList):
-                avList.append(str(curs.fetchone()).replace(",", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", ""))
+                memberChoice = showMenu("WHICH SESSION WOULD YOU LIKE TO CANCEL?", avList)
+                sessionID = cursList[5 * memberChoice]
 
-            memberChoice = showMenu("WHICH TRAINER WOULD YOU LIKE FOR YOUR SESSION?", avList)
-            trainerID = cursList[memberChoice]
+                print("Session successfully cancelled!")
+                curs.execute("DELETE FROM Sessions WHERE session_id = " + sessionID)
+                conn.commit()
 
-            curs.execute("INSERT INTO Sessions (session_id, trainer_id, member_id, start_time) VALUES (DEFAULT, " + trainerID + ", " + memberID + ", '" + str(startTime) + ":00')")
-            conn.commit()
     else:
         curs.execute("SELECT class_id, class_name, class_day, start_time, end_time FROM Classes")
         cursList = str(curs.fetchall()).replace("[", "").replace("]", "").replace("(", "").replace(")", "").replace("'", "").replace("datetime.time", "").split(", ")
@@ -203,7 +271,7 @@ else:
     cursor = connection.cursor() # Creates a cursor which allows us to run queries on the database
 
     userChoice = showMenu("WHAT IS YOUR ROLE?", ["Member", "Trainer", "Admin"])
-
+    
     if(userChoice == 0):
         userTable = "Members"
 
@@ -221,22 +289,7 @@ else:
                 cursor.execute("SELECT * FROM Members WHERE member_id = " + userID)
                 print("")
         else:
-            userFN = input("What is your first name? ")
-            userLN = input("What is your last name? ")
-            userGoalWeight = input("What is your goal weight? ")
-            userCurrWeight = input("What is your current weight? ")
-            userBMI = input("What is your BMI? ")
-
-            userID = registerMember(connection, cursor, userFN, userLN, userGoalWeight, userCurrWeight, userBMI)
-
-        userChoice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Manage Profile", "Display Dashboard", "Manage Schedule"])
-
-        if(userChoice == 0):
-            manageMemberProfile(connection, cursor, userID)
-        elif(userChoice == 1):
-            displayDashboard(connection, cursor, userID)
-        else:
-            manageMemberSchedule(connection, cursor, userID)
+            userID = registerMember(connection, cursor)
             
     elif(userChoice == 1):
         userTable = "Trainers"
@@ -252,11 +305,26 @@ else:
             cursor.execute("SELECT * FROM Trainers WHERE trainer_id = " + userID)
             print("")
 
-        userChoice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Manage Schedule", "View Member Profile"])
+    while(continueProgram):
+        if(userTable == "Members"):
+            userChoice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Manage Profile", "Display Dashboard", "Manage Schedule", "QUIT"])
 
-        if(userChoice == 0):
-            manageTrainerSchedule(connection, cursor, userID)
-        elif(userChoice == 1):
-            viewMember(connection, cursor)
+            if(userChoice == 0):
+                manageMemberProfile(connection, cursor, userID)
+            elif(userChoice == 1):
+                displayDashboard(connection, cursor, userID)
+            elif(userChoice == 2):
+                manageMemberSchedule(connection, cursor, userID)
+            else:
+                continueProgram = False;
+        elif(userTable == "Trainers"):
+            userChoice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Manage Schedule", "View Member Profile", "QUIT"])
+
+            if(userChoice == 0):
+                manageTrainerSchedule(connection, cursor, userID)
+            elif(userChoice == 1):
+                viewMember(connection, cursor)
+            else:
+                continueProgram = False;
 
     connection.close() # Closes the connection to the database

@@ -8,15 +8,6 @@ CREATE TABLE Members (
     registration_time   TIMESTAMP   NOT NULL UNIQUE
 );
 
-CREATE TABLE Routines (
-    routine_id      SERIAL      PRIMARY KEY,
-    member_id		INT		    NOT NULL,
-    routine_name    VARCHAR(255)	NOT NULL,
-
-    FOREIGN KEY (member_id)
-		REFERENCES Members (member_id)
-);
-
 CREATE TABLE Trainers (
     trainer_id  SERIAL      PRIMARY KEY,
     first_name  VARCHAR(255)    NOT NULL,
@@ -27,7 +18,8 @@ CREATE TABLE Sessions (
     session_id      SERIAL    PRIMARY KEY,
     member_id		    INT		    NOT NULL,
     trainer_id	    INT		    NOT NULL,
-    routine_id      INT      NOT NULL,
+    day_of_week     VARCHAR(255)    NOT NULL,
+    start_time      TIME      NOT NULL,
 
     FOREIGN KEY (member_id)
 		  REFERENCES Members (member_id),
