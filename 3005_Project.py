@@ -64,18 +64,37 @@ def manageMemberProfile(conn, curs, memberID):
     conn.commit()
 
 def displayDashboard(conn, curs, memberID):
-    #INSERT EXCERCISE ROUTINE STUFF HERE
-    
+    curs.execute("SELECT current_weight FROM Members WHERE member_id = " + memberID)
+    currentWeight = str(curs.fetchone()).strip("(),")
     curs.execute("SELECT current_weight FROM Members WHERE member_id = " + memberID)
     currentWeight = str(curs.fetchone()).strip("(),")
     curs.execute("SELECT goal_weight FROM Members WHERE member_id = " + memberID)
     goalWeight = str(curs.fetchone()).strip("(),")
     weightDiff = abs(int(currentWeight) - int(goalWeight))
 
-    print("Only " + str(weightDiff) + " lbs away from goal weight.")
+    curs.execute("SELECT first_name, last_name FROM Members WHERE member_id = " + memberID)
+    name = str(curs.fetchone()).replace(",", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", "")    
+    print(name + "'s Dashboard:\n")
+
+    print(name + "'s routines:")
+    curs.execute("SELECT class_id FROM Registrations WHERE member_id = " + memberID)
+    cursList = []
+    
+    if(curs.rowcount == 0):
+        print("NONE")
+    elif(curs.rowcount == 1):
+        cursList = str(curs.fetchall()).replace("[", "").replace("]", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", "").replace(",", "")
+    else:
+        cursList = str(curs.fetchall()).replace("[", "").replace("]", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", "").split(", ")
+        
+    for element in cursList:
+        curs.execute("SELECT class_name FROM Classes WHERE class_id = " + element)
+        print("- " + str(curs.fetchone()).replace("(", "").replace(")", "").replace("'", "").replace(",", ""))
+    
+    print(name + " is only " + str(weightDiff) + " lbs away from their goal weight!")
 
     curs.execute("SELECT bmi FROM Members WHERE member_id = " + memberID)
-    print("Current bmi is: " + str(curs.fetchone()).strip("(),") + "\n")
+    print(name + "'s current bmi is: " + str(curs.fetchone()).strip("(),") + "\n")
 
 def manageMemberSchedule(conn, curs, memberID):
     choice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Schedule Personal Training Session", "Register For Group Fitness Class"])
