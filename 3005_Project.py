@@ -385,7 +385,6 @@ def manageRoomBookings(conn, curs):
             print("Booking not found.")
     else:
         print("Invalid input.")
-    curs.close()
 
 def monitorEquipment(conn, curs):
     print("adsa")
