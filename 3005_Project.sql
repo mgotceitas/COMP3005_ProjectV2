@@ -60,3 +60,15 @@ CREATE TABLE Registrations (
     FOREIGN KEY (member_id)
 		  REFERENCES Members (member_id)
 );
+
+-- vincent code
+CREATE TABLE RoomBooking (
+    room_booking_id SERIAL PRIMARY KEY,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    booking_date DATE NOT NULL,
+    booking_status VARCHAR(255) NOT NULL,
+    room_id INT NOT NULL,
+    class_id INT NOT NULL,
+    FOREIGN KEY (class_id) REFERENCES Classes (class_id)
+);
