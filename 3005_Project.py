@@ -303,6 +303,7 @@ def manageTrainerSchedule(conn, curs, trainerID):
         curs.execute("INSERT INTO Availabilities (availability_id, trainer_id, day_of_week, start_time, end_time) VALUES (DEFAULT, " + trainerID + ", '" + weekDay + "', '" + str(startTime) + ":00', '" + str(endTime) + ":00')")
         conn.commit()
 
+# Shows all bookings in a formatted manner
 def showBookings(bookings):
     print("HERE ARE ALL THE BOOKINGS:")
     print("Room Booking ID | Start Time | End Time | Booking Date | Booking Status | Room ID | Class ID")
@@ -321,49 +322,62 @@ def showBookings(bookings):
 def manageRoomBookings(conn, curs):
     curs.execute("SELECT * FROM RoomBooking")
     bookings = curs.fetchall()
+    # Shows all bookings again using the previously made function
     showBookings(bookings)
 
     adminChoice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Create A Booking", "Remove A Booking", "Show all Bookings", "Confirm/Edit A Booking"])
     if(adminChoice == 0):
+        # Creates a booking depending on what the user inputs
         bookingDate = input("Please enter the date of the booking (YYYY-mm-dd):")
         startTime = input("Please enter starting time of the booking (HH:MM:SS):")
         endTime = input("Please enter the end time of the booking (HH:MM:SS):")
         roomID = input("Please enter which room you would like to book\n(assuming admin knows the number of the room\nex. to book room 4 admin would type '4'):")
         classID = input("Please enter the class ID:")
+        # Inserts the information into the table as a new tuple
         curs.execute("INSERT INTO RoomBooking (room_booking_id, start_time, end_time, booking_date, booking_status, room_id, class_id) VALUES (DEFAULT, '%s', '%s', '%s', '%s', %s, %s)" % (startTime, endTime, bookingDate, "pending",roomID, classID))
         conn.commit()
+        print("Booking created successfully.\n")
     elif(adminChoice == 1):
+        # Removes a tuple from the table depending on the admin input
         bookingID = input("Please enter the booking ID you would like to remove: ")
         curs.execute("DELETE FROM RoomBooking WHERE room_booking_id = " + bookingID)
         conn.commit()
+        print("Booking Removed Successfully.\n")
     elif(adminChoice == 2):
+        # Shows all bookings again using the previously made function
         curs.execute("SELECT * FROM RoomBooking")
         bookings = curs.fetchall()
         showBookings(bookings)
     elif(adminChoice == 3):
+        # Asks for a booking id from the admin
         bookingID = input("Please enter the booking ID you would like to confirm/edit: ")
         curs.execute("SELECT * FROM RoomBooking WHERE room_booking_id = %s", (bookingID,))
         booking = curs.fetchone()
+
         if booking:
-            # Extract relevant details
+            # It extracts the relevant details
             roomID = booking[5]
             startTime = booking[1]
             endTime = booking[2]
+
+            # Asks whether the admin wants to cancel or confirm a booking
             newStatus = showMenu("What action would you like to perform?", ["Cancel A Booking", "Confirm A Booking"])
             if(newStatus == 0):
+                # Removes a tuple similar to one of the previous choices
                 curs.execute("DELETE FROM RoomBooking WHERE room_booking_id = " + bookingID)
                 conn.commit()
+                print("Booking Removed Successfully.\n")
             else:
+                # Otherwise...
                 newStatus = "confirmed"
-                # Check for conflicts with confirmed bookings
-                #cur = conn.cursor()
+                # First it checks for conflicts with confirmed bookings
                 curs.execute("SELECT * FROM RoomBooking WHERE room_booking_id = %s AND booking_status = 'confirmed' AND NOT (end_time <= %s OR start_time >= %s) AND room_booking_id != %s", (roomID, startTime, endTime, bookingID))
                 conflictingBookings = curs.fetchall()
                 
                 if conflictingBookings:
                     print("There are conflicting bookings. Status cannot be changed.")
                 else:
-                    # Update booking status
+                    # Otherwise it updates booking status
                     curs.execute("UPDATE RoomBooking SET booking_status = %s WHERE room_booking_id = %s", (newStatus, bookingID))
                     conn.commit()
                     print(f"Booking status updated to {newStatus} successfully.")
@@ -458,8 +472,10 @@ else:
             print("")
     # VINCENT CODE!
     elif(userChoice == 2):
-        #idk im just using userid to match the prev code
+        userTable = "Admin"
+        # Take in the admin password to determin if user is an admin
         userID = input("Please enter the admin password:\n")
+        # Shows all the admin functions and does them depending on user input
         if(userID == adminPassword):
             userChoice = showMenu("What would you like to do?", ["Manage Room Bookings", "Monitor Equipment Maintenence", "Update Class Schedule", "Billing and Payment Proccessing"])
             if(userChoice == 0):
@@ -486,8 +502,8 @@ else:
             elif(userChoice == 2):
                 manageMemberSchedule(connection, cursor, userID)
             else:
-                continueProgram = False; # Dsicontinue program
-        # Run if user is a member
+                continueProgram = False; # Discontinue program
+        # Run if user is a trainer
         elif(userTable == "Trainers"):
             userChoice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Manage Schedule", "View Member Profile", "QUIT"])
 
@@ -496,6 +512,19 @@ else:
             elif(userChoice == 1):
                 viewMember(connection, cursor)
             else:
-                continueProgram = False; # Disontinue program
+                continueProgram = False; # Discontinue program
+        # Run if user is Admin
+        elif(userTable == "Admin"):
+            userChoice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Manage Room Bookings", "Monitor Equipment Maintenence", "Update Class Schedule", "Billing and Payment Proccessing", "QUIT"])
+            if(userChoice == 0):
+                manageRoomBookings(connection, cursor)
+            elif(userChoice == 1):
+                monitorEquipment(connection, cursor)
+            elif(userChoice == 2):
+                updateClassSched(connection, cursor)
+            elif(userChoice == 3):
+                processPayments(connection, cursor)
+            else:
+                continueProgram = False; # Discontinue program
 
     connection.close() # Closes the connection to the database
