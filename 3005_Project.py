@@ -5,6 +5,7 @@ continueProgram = True
 userChoice = 0
 userTable = ""
 userID = -1
+adminPassword = "iamadmin123"
 
 def showMenu(title, options):
     choice = -1
@@ -301,7 +302,87 @@ def manageTrainerSchedule(conn, curs, trainerID):
         # Insert availability and commit to database
         curs.execute("INSERT INTO Availabilities (availability_id, trainer_id, day_of_week, start_time, end_time) VALUES (DEFAULT, " + trainerID + ", '" + weekDay + "', '" + str(startTime) + ":00', '" + str(endTime) + ":00')")
         conn.commit()
-        
+
+def showBookings(bookings):
+    print("HERE ARE ALL THE BOOKINGS:")
+    print("Room Booking ID | Start Time | End Time | Booking Date | Booking Status | Room ID | Class ID")
+    print("-" * 80)
+
+    # Iterate over the bookings and print each one
+    for booking in bookings:
+        start_time = booking[1].strftime("%H:%M:%S")
+        end_time = booking[2].strftime("%H:%M:%S")
+        # Convert booking_date to YYYY-MM-DD format
+        booking_date = booking[3].strftime("%Y-%m-%d")
+        # Print the formatted booking details
+        print("{:<14} | {:<10} | {:<9} | {:<12} | {:<14} | {:<7} | {:<8}".format(booking[0], start_time, end_time, booking_date, booking[4], booking[5], booking[6]))
+    print("\n")
+
+def manageRoomBookings(conn, curs):
+    curs.execute("SELECT * FROM RoomBooking")
+    bookings = curs.fetchall()
+    showBookings(bookings)
+
+    adminChoice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Create A Booking", "Remove A Booking", "Show all Bookings", "Confirm/Edit A Booking"])
+    if(adminChoice == 0):
+        bookingDate = input("Please enter the date of the booking (YYYY-mm-dd):")
+        startTime = input("Please enter starting time of the booking (HH:MM:SS):")
+        endTime = input("Please enter the end time of the booking (HH:MM:SS):")
+        roomID = input("Please enter which room you would like to book\n(assuming admin knows the number of the room\nex. to book room 4 admin would type '4'):")
+        classID = input("Please enter the class ID:")
+        curs.execute("INSERT INTO RoomBooking (room_booking_id, start_time, end_time, booking_date, booking_status, room_id, class_id) VALUES (DEFAULT, '%s', '%s', '%s', '%s', %s, %s)" % (startTime, endTime, bookingDate, "pending",roomID, classID))
+        conn.commit()
+    elif(adminChoice == 1):
+        bookingID = input("Please enter the booking ID you would like to remove: ")
+        curs.execute("DELETE FROM RoomBooking WHERE room_booking_id = " + bookingID)
+        conn.commit()
+    elif(adminChoice == 2):
+        curs.execute("SELECT * FROM RoomBooking")
+        bookings = curs.fetchall()
+        showBookings(bookings)
+    elif(adminChoice == 3):
+        bookingID = input("Please enter the booking ID you would like to confirm/edit: ")
+        curs.execute("SELECT * FROM RoomBooking WHERE room_booking_id = %s", (bookingID,))
+        booking = curs.fetchone()
+        if booking:
+            # Extract relevant details
+            roomID = booking[5]
+            startTime = booking[1]
+            endTime = booking[2]
+            newStatus = showMenu("What action would you like to perform?", ["Cancel A Booking", "Confirm A Booking"])
+            if(newStatus == 0):
+                curs.execute("DELETE FROM RoomBooking WHERE room_booking_id = " + bookingID)
+                conn.commit()
+            else:
+                newStatus = "confirmed"
+                # Check for conflicts with confirmed bookings
+                #cur = conn.cursor()
+                curs.execute("SELECT * FROM RoomBooking WHERE room_booking_id = %s AND booking_status = 'confirmed' AND NOT (end_time <= %s OR start_time >= %s) AND room_booking_id != %s", (roomID, startTime, endTime, bookingID))
+                conflictingBookings = curs.fetchall()
+                
+                if conflictingBookings:
+                    print("There are conflicting bookings. Status cannot be changed.")
+                else:
+                    # Update booking status
+                    curs.execute("UPDATE RoomBooking SET booking_status = %s WHERE room_booking_id = %s", (newStatus, bookingID))
+                    conn.commit()
+                    print(f"Booking status updated to {newStatus} successfully.")
+        else:
+            print("Booking not found.")
+    else:
+        print("Invalid input.")
+    curs.close()
+
+def monitorEquipment(conn, curs):
+    print("adsa")
+
+def updateClassSched(conn, curs):
+    print("asdsadas")
+
+def processPayments(conn, curs):
+    print("shibal")
+
+
 def viewMember(conn, curs):
     ln = input("What is the last name of the member who's profile you would like to view? ")
     # Get all members with the last name that was entered by the trainer
@@ -375,6 +456,23 @@ else:
             userID = input("What is your member ID? ")
             cursor.execute("SELECT * FROM Trainers WHERE trainer_id = " + userID)
             print("")
+    # VINCENT CODE!
+    elif(userChoice == 2):
+        #idk im just using userid to match the prev code
+        userID = input("Please enter the admin password:\n")
+        if(userID == adminPassword):
+            userChoice = showMenu("What would you like to do?", ["Manage Room Bookings", "Monitor Equipment Maintenence", "Update Class Schedule", "Billing and Payment Proccessing"])
+            if(userChoice == 0):
+                manageRoomBookings(connection, cursor)
+            elif(userChoice == 1):
+                monitorEquipment(connection, cursor)
+            elif(userChoice == 2):
+                updateClassSched(connection, cursor)
+            elif(userChoice == 3):
+                processPayments(connection, cursor)
+        else:
+            print("ERROR: Password does not match to admin password.")
+
     
     while(continueProgram):
         # Run if user is a member
