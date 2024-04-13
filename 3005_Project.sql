@@ -40,14 +40,10 @@ CREATE TABLE Availabilities (
 
 CREATE TABLE Classes (
     class_id      SERIAL    PRIMARY KEY,
-    trainer_id	    INT		    NOT NULL,
     class_day       VARCHAR(255)    NOT NULL UNIQUE,
     start_time      TIME      NOT NULL,
     end_time      TIME      NOT NULL,
-    class_name      VARCHAR(255)    NOT NULL UNIQUE,
-
-    FOREIGN KEY (trainer_id)
-		  REFERENCES Trainers (trainer_id)
+    class_name      VARCHAR(255)    NOT NULL UNIQUE
 );
 
 CREATE TABLE Registrations (

@@ -149,10 +149,18 @@ def manageMemberSchedule(conn, curs, memberID):
                     trainerList.append(str(curs.fetchone()).replace(",", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", ""))
                 memberChoice = showMenu("WHICH TRAINER WOULD YOU LIKE FOR YOUR SESSION?", trainerList)
                 trainerID = cursList[memberChoice]
+
+                choice = showMenu("HOW WOULD YOU LIKE TO PAY?", ["Visa", "Mastercard"])
+                paymentMethod = ""
+                if(choice == 0):
+                    paymentMethod = "Visa"
+                else:
+                    paymentMethod = "Mastercard"
                 
-                print("Session successfully scheduled!")
+                print("Session successfully scheduled! You have a bill of 100 dollars which you must pay each month.")
                 # Insert the sessionn into the Sessions table
                 curs.execute("INSERT INTO Sessions (session_id, trainer_id, member_id, day_of_week, start_time) VALUES (DEFAULT, " + trainerID + ", " + memberID + ", '" + weekDay + "', '" + str(startTime) + ":00')")
+                curs.execute("INSERT INTO Bills (bill_id, bill_cost, payment_method, paid_date, next_pay, member_id) VALUES (DEFAULT, %s, %s, %s, %s, %s) RETURNING *", ("100", paymentMethod, str(date.today()), str(date.today() + timedelta(days = 30)), memberID))
                 conn.commit() # Commit database changes
                 
         # Run if user wants to reschedule a session
@@ -254,6 +262,16 @@ def manageMemberSchedule(conn, curs, memberID):
                 classID = cursList[7 * (memberChoice - 1)]
                 
                 # Register user and commit to database
+                choice = showMenu("HOW WOULD YOU LIKE TO PAY?", ["Visa", "Mastercard"])
+                paymentMethod = ""
+                if(choice == 0):
+                    paymentMethod = "Visa"
+                else:
+                    paymentMethod = "Mastercard"
+                
+                print("Successfully registered for class! You have a bill of 100 dollars which you must pay each month.")
+                # Insert the sessionn into the Sessions table
+                curs.execute("INSERT INTO Bills (bill_id, bill_cost, payment_method, paid_date, next_pay, member_id) VALUES (DEFAULT, %s, %s, %s, %s, %s) RETURNING *", ("100", paymentMethod, str(date.today()), str(date.today() + timedelta(days = 30)), memberID))
                 curs.execute("INSERT INTO Registrations (registration_id, class_id, member_id) VALUES (DEFAULT, " + classID + ", " + memberID + ")")
                 conn.commit()
 
@@ -310,10 +328,10 @@ def showBookings(bookings):
 
     # Iterate over the bookings and print each one
     for booking in bookings:
-        start_time = booking[1].strftime("%H:%M:%S")
-        end_time = booking[2].strftime("%H:%M:%S")
+        start_time = datetime.strftime(booking[1], "%H:%M:%S")
+        end_time = datetime.strftime(booking[2], "%H:%M:%S")
         # Convert booking_date to YYYY-MM-DD format
-        booking_date = booking[3].strftime("%Y-%m-%d")
+        booking_date = datetime.strftime(booking[3], "%Y-%m-%d")
         # Print the formatted booking details
         print("{:<14} | {:<10} | {:<9} | {:<12} | {:<14} | {:<7} | {:<8}".format(booking[0], start_time, end_time, booking_date, booking[4], booking[5], booking[6]))
     print("\n")
@@ -451,11 +469,11 @@ def monitorEquipment(conn, curs):
 # functino to show classes in a formatted manner
 def showClasses(classes):
     print("Class Schedule:")
-    print("ID | Trainer ID | Class Day | Start Time | End Time | Class Name")
+    print("ID | Class Day | Start Time | End Time | Class Name")
     for classInfo in classes:
-        startTime = classInfo[3].strftime("%H:%M:%S")
-        endTime = classInfo[4].strftime("%H:%M:%S")
-        print("{:<2} | {:<10} | {:<9} | {:<10} | {:<8} | {:<10}".format(classInfo[0], classInfo[1], classInfo[2], startTime, endTime, classInfo[5]))
+        startTime = classInfo[2].strftime("%H:%M:%S")
+        endTime = classInfo[3].strftime("%H:%M:%S")
+        print("{:<2} | {:<9} | {:<10} | {:<8} | {:<10}".format(classInfo[0], classInfo[1], startTime, endTime, classInfo[4]))
 
 
 # Function to check availability of trainers
@@ -475,68 +493,118 @@ def checkAvailability(curs, newTrainerId, newStartTime, newEndTime, newClassDay)
 
 # Allows admin to update the schedule of the class
 def updateClassSched(conn, curs):
-    curs.execute("SELECT * FROM Classes")
-    classes = curs.fetchall()
-    showClasses(classes)
-    classID = input("Please enter the class ID you would like to update: ")
-    curs.execute("SELECT class_id, trainer_id, class_day, start_time, end_time, class_name FROM Classes WHERE class_id =" + classID)
-    classUpdate = curs.fetchone()
+    choice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Update Class", "Create Class"])
 
-    # Gives options to user on what to update
-    if classUpdate:
-        adminChoice = showMenu("WHAT WOULD YOU LIKE TO UPDATE?", ["Trainer ID", "Start Time", "End Time", "Class Name"])
-        if(adminChoice == 0):
-            # Checks availability of the trainer and updates accordingly
-            trainerID = input("Please enter the new trainer ID: ")
-            if(checkAvailability(curs, trainerID, classUpdate[3], classUpdate[4], classUpdate[2])):
-                curs.execute("UPDATE Classes SET trainer_id = %s WHERE class_id = %s", (trainerID, classID))
+    if(choice == 0):
+        curs.execute("SELECT * FROM Classes")
+        classes = curs.fetchall()
+        showClasses(classes)
+        classID = input("Please enter the class ID you would like to update: ")
+        curs.execute("SELECT class_id, trainer_id, class_day, start_time, end_time, class_name FROM Classes WHERE class_id =" + classID)
+        classUpdate = curs.fetchone()
+
+        # Gives options to user on what to update
+        if classUpdate:
+            adminChoice = showMenu("WHAT WOULD YOU LIKE TO UPDATE?", ["Trainer ID", "Start Time", "End Time", "Class Name"])
+            if(adminChoice == 0):
+                # Checks availability of the trainer and updates accordingly
+                trainerID = input("Please enter the new trainer ID: ")
+                if(checkAvailability(curs, trainerID, classUpdate[3], classUpdate[4], classUpdate[2])):
+                    curs.execute("UPDATE Classes SET trainer_id = %s WHERE class_id = %s", (trainerID, classID))
+                    print("Class Updated Successfully.\n")
+            elif(adminChoice == 1):
+                startTime = input("Please enter the new start time: ")
+                if(checkAvailability(curs, classUpdate[1], startTime, classUpdate[4], classUpdate[2])):
+                    curs.execute("UPDATE Classes SET start_time = %s WHERE class_id = %s", (startTime, classID))
+                    print("Class Updated Successfully.\n")
+            elif(adminChoice == 2):
+                endTime = input("Please enter the new end time: ")
+                if(checkAvailability(curs, classUpdate[1], classUpdate[3], endTime, classUpdate[2])):
+                    curs.execute("UPDATE Classes SET end_time = %s WHERE class_id = %s", (endTime, classID))
+                    print("Class Updated Successfully.\n")
+            elif(adminChoice == 3):
+                className = input("Please enter the new class name: ")
+                curs.execute("UPDATE Classes SET class_name = %s WHERE class_id = %s", (className, classID))
                 print("Class Updated Successfully.\n")
-        elif(adminChoice == 1):
-            startTime = input("Please enter the new start time: ")
-            if(checkAvailability(curs, classUpdate[1], startTime, classUpdate[4], classUpdate[2])):
-                curs.execute("UPDATE Classes SET start_time = %s WHERE class_id = %s", (startTime, classID))
-                print("Class Updated Successfully.\n")
-        elif(adminChoice == 2):
-            endTime = input("Please enter the new end time: ")
-            if(checkAvailability(curs, classUpdate[1], classUpdate[3], endTime, classUpdate[2])):
-                curs.execute("UPDATE Classes SET end_time = %s WHERE class_id = %s", (endTime, classID))
-                print("Class Updated Successfully.\n")
-        elif(adminChoice == 3):
-            className = input("Please enter the new class name: ")
-            curs.execute("UPDATE Classes SET class_name = %s WHERE class_id = %s", (className, classID))
-            print("Class Updated Successfully.\n")
+            else:
+                print("Invalid Input.")
+            conn.commit()
         else:
-            print("Invalid Input.")
-        conn.commit()
+            print("This class does not exist.")
     else:
-        print("This class does not exist.")
+        weekDay = ""
+        choice = showMenu("WHICH DAY WOULD YOU LIKE THE CLASS TO BE ON?", ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"])
+        if(choice == 0):
+            weekDay = "Monday"
+        elif(choice == 1):
+            weekDay = "Tuesday"
+        elif(choice == 2):
+            weekDay = "Wednesday"
+        elif(choice == 3):
+            weekDay = "Thursday"
+        else:
+            weekDay = "Friday"
+
+        startTime = 6 + showMenu("WHEN WOULD YOU LIKE THE CLASS TO START (Class will go from this time to 2 hours ahead)?", ["06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"])
+        endTime = startTime + 2 # Calculate class end time
+
+        className = input("ENTER THE NAME OF THE CLASS: ")
+            
+        curs.execute("INSERT INTO Classes (class_id, class_day, start_time, end_time, class_name) VALUES (DEFAULT, '" + weekDay + "', '" + str(startTime) + ":00', '" + str(endTime) + ":00', '" + className + "')")
+
 
 # Function to allow the admin to process a payment and show the receipt
 def processPayments(conn, curs):
+    choice = -1
+    memberID = -1
+    
     try:
+        choice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Create Bill", "Pay Existing Bill"])
         # Receives information and adds to the table of bills accordingly
-        memberId = input("Please input member ID: ")
-        billCost = input("Enter bill cost: ")
-        paymentMethod = input ("Enter payment method:")
-        curs.execute("INSERT INTO Bills(bill_id, bill_cost, payment_method, paid_date, next_pay, member_id) VALUES (DEFAULT, %s, %s, %s, %s, %s) RETURNING *", (billCost, paymentMethod, str(date.today()), str(date.today() + timedelta(days = 30)), memberId))
+        memberID = input("Please input member ID: ")
+
+        if(choice == 0):
+            billCost = input("Enter bill cost: ")
+            paymentMethod = input ("Enter payment method:")
+            curs.execute("INSERT INTO Bills(bill_id, bill_cost, payment_method, paid_date, next_pay, member_id) VALUES (DEFAULT, %s, %s, %s, %s, %s) RETURNING *", (billCost, paymentMethod, str(date.today()), str(date.today() + timedelta(days = 30)), memberID))
+        else:
+            curs.execute("SELECT bill_id, bill_cost, payment_method, next_pay FROM Bills WHERE member_id = " + memberID)
+            
     except:
         print("Invalid Input.")
     else:
-        # Prints the receipt in the terminal
-        bill = curs.fetchone()
-        print("\n\nHERE IS YOUR BILL:")
-        print("Bill ID: {}".format(bill[0]))
-        print("Bill Cost: ${}".format(bill[1]))
-        print("Payment Method: {}".format(bill[2]))
-        if bill[3] is not None:
-            print("Paid Date: {}".format(bill[3]))
+        if(choice == 0):
+            # Prints the receipt in the terminal
+            bill = curs.fetchone()
+            print("\n\nHERE IS YOUR BILL:")
+            print("Bill ID: {}".format(bill[0]))
+            print("Bill Cost: ${}".format(bill[1]))
+            print("Payment Method: {}".format(bill[2]))
+            if bill[3] is not None:
+                print("Paid Date: {}".format(bill[3]))
+            else:
+                print("Paid Date: Not paid yet")
+            if bill[4] is not None:
+                print("Next Payment Date: {}".format(bill[4]))
+            else:
+                print("Next Payment Date: Not scheduled yet")
+                
+            print("Member ID: {} \n\n".format(bill[5]))
         else:
-            print("Paid Date: Not paid yet")
-        if bill[4] is not None:
-            print("Next Payment Date: {}".format(bill[4]))
-        else:
-            print("Next Payment Date: Not scheduled yet")
-        print("Member ID: {} \n\n".format(bill[5]))
+            billList = []
+            cursList = str(curs.fetchall()).replace("[", "").replace("]", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", "").replace("datetime.date", "").split(", ")
+
+            for index, element in enumerate(cursList[::6]):
+                billList.append("$" + cursList[6 * index + 1] + " | Member ID: " + memberID + " | Payment Method: " + cursList[6 * index + 2])
+            
+            # Get user's desired class
+            memberChoice = showMenu("WHICH BILL WOULD YOU LIKE TO PROCESS PAYMENT FOR?", billList)
+            billID = cursList[6 * memberChoice]
+            nextPay = datetime.strptime(cursList[6 * memberChoice + 3] + cursList[6 * memberChoice + 4] + cursList[6 * memberChoice + 5], "%Y%m%d")
+            print(str(datetime.date(nextPay) + timedelta(days = 30)))
+            curs.execute("UPDATE Bills SET next_pay = %s WHERE bill_id = %s", (str(datetime.date(nextPay) + timedelta(days = 30)), billID))
+            curs.execute("UPDATE Bills SET paid_date = %s WHERE bill_id = %s", (str(date.today() + timedelta(days = 30)), billID))
+        
     conn.commit()
 
 
