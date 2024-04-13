@@ -337,7 +337,7 @@ def showBookings(bookings):
     print("\n")
 
 def manageRoomBookings(conn, curs):
-    curs.execute("SELECT * FROM RoomBooking")
+    curs.execute("SELECT * FROM RoomBookings")
     bookings = curs.fetchall()
     # Shows all bookings again using the previously made function
     showBookings(bookings)
@@ -361,7 +361,7 @@ def manageRoomBookings(conn, curs):
     elif(adminChoice == 1):
         # Removes a tuple from the table depending on the admin input
         bookingID = input("Please enter the booking ID you would like to remove: ")
-        curs.execute("DELETE FROM RoomBooking WHERE room_booking_id = " + bookingID)
+        curs.execute("DELETE FROM RoomBookings WHERE room_booking_id = " + bookingID)
         conn.commit()
         print("Booking Removed Successfully.\n")
     elif(adminChoice == 2):
@@ -372,7 +372,7 @@ def manageRoomBookings(conn, curs):
     elif(adminChoice == 3):
         # Asks for a booking id from the admin
         bookingID = input("Please enter the booking ID you would like to confirm/edit: ")
-        curs.execute("SELECT * FROM RoomBooking WHERE room_booking_id = %s", (bookingID,))
+        curs.execute("SELECT * FROM RoomBookings WHERE room_booking_id = %s", (bookingID,))
         booking = curs.fetchone()
 
         if booking:
