@@ -328,10 +328,10 @@ def showBookings(bookings):
 
     # Iterate over the bookings and print each one
     for booking in bookings:
-        start_time = datetime.strftime(booking[1], "%H:%M:%S")
-        end_time = datetime.strftime(booking[2], "%H:%M:%S")
+        start_time = booking[1].strftime("%H:%M:%S")
+        end_time = booking[2].strftime("%H:%M:%S")
         # Convert booking_date to YYYY-MM-DD format
-        booking_date = datetime.strftime(booking[3], "%Y-%m-%d")
+        booking_date = booking[3].strftime("%Y-%m-%d")
         # Print the formatted booking details
         print("{:<14} | {:<10} | {:<9} | {:<12} | {:<14} | {:<7} | {:<8}".format(booking[0], start_time, end_time, booking_date, booking[4], booking[5], booking[6]))
     print("\n")
@@ -475,22 +475,6 @@ def showClasses(classes):
         endTime = classInfo[3].strftime("%H:%M:%S")
         print("{:<2} | {:<9} | {:<10} | {:<8} | {:<10}".format(classInfo[0], classInfo[1], startTime, endTime, classInfo[4]))
 
-
-# Function to check availability of trainers
-def checkAvailability(curs, newTrainerId, newStartTime, newEndTime, newClassDay):
-    try:
-        # Check trainer's availability
-        curs.execute("SELECT * FROM Availabilities WHERE trainer_id = %s AND day_of_week = %s AND start_time <= %s AND end_time >= %s", (newTrainerId, newClassDay, newStartTime, newEndTime))
-        trainerAvailability = curs.fetchone()
-        if not trainerAvailability:
-            print("Trainer is not available at the specified time.")
-            return False
-
-        return True
-    except:
-        print("Error checking availability and conflicts:")
-        return False
-
 # Allows admin to update the schedule of the class
 def updateClassSched(conn, curs):
     choice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Update Class", "Create Class"])
@@ -499,38 +483,45 @@ def updateClassSched(conn, curs):
         curs.execute("SELECT * FROM Classes")
         classes = curs.fetchall()
         showClasses(classes)
-        classID = input("Please enter the class ID you would like to update: ")
-        curs.execute("SELECT class_id, trainer_id, class_day, start_time, end_time, class_name FROM Classes WHERE class_id =" + classID)
-        classUpdate = curs.fetchone()
-
-        # Gives options to user on what to update
-        if classUpdate:
-            adminChoice = showMenu("WHAT WOULD YOU LIKE TO UPDATE?", ["Trainer ID", "Start Time", "End Time", "Class Name"])
-            if(adminChoice == 0):
-                # Checks availability of the trainer and updates accordingly
-                trainerID = input("Please enter the new trainer ID: ")
-                if(checkAvailability(curs, trainerID, classUpdate[3], classUpdate[4], classUpdate[2])):
-                    curs.execute("UPDATE Classes SET trainer_id = %s WHERE class_id = %s", (trainerID, classID))
-                    print("Class Updated Successfully.\n")
-            elif(adminChoice == 1):
-                startTime = input("Please enter the new start time: ")
-                if(checkAvailability(curs, classUpdate[1], startTime, classUpdate[4], classUpdate[2])):
-                    curs.execute("UPDATE Classes SET start_time = %s WHERE class_id = %s", (startTime, classID))
-                    print("Class Updated Successfully.\n")
-            elif(adminChoice == 2):
-                endTime = input("Please enter the new end time: ")
-                if(checkAvailability(curs, classUpdate[1], classUpdate[3], endTime, classUpdate[2])):
-                    curs.execute("UPDATE Classes SET end_time = %s WHERE class_id = %s", (endTime, classID))
-                    print("Class Updated Successfully.\n")
-            elif(adminChoice == 3):
-                className = input("Please enter the new class name: ")
-                curs.execute("UPDATE Classes SET class_name = %s WHERE class_id = %s", (className, classID))
-                print("Class Updated Successfully.\n")
-            else:
-                print("Invalid Input.")
-            conn.commit()
+        try:
+            classID = input("Please enter the class ID you would like to update: ")
+            curs.execute("SELECT class_id, class_day, start_time, end_time, class_name FROM Classes WHERE class_id =" + classID)
+            classUpdate = curs.fetchone()
+        except:
+            print("Invalid Class ID")
         else:
-            print("This class does not exist.")
+            # Gives options to user on what to update
+            if classUpdate:
+                adminChoice = showMenu("WHAT WOULD YOU LIKE TO UPDATE?", ["Class Day", "Start Time", "Class Name"])
+                if(adminChoice == 0):
+                    weekDay = ""
+                    choice = showMenu("WHICH DAY WOULD YOU LIKE THE NEW CLASS TO BE ON?", ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"])
+                    if(choice == 0):
+                        weekDay = "Monday"
+                    elif(choice == 1):
+                        weekDay = "Tuesday"
+                    elif(choice == 2):
+                        weekDay = "Wednesday"
+                    elif(choice == 3):
+                        weekDay = "Thursday"
+                    else:
+                        weekDay = "Friday"
+                    curs.execute("UPDATE Classes SET class_day = %s WHERE class_id = %s", (weekDay, classID))
+                    print("Class Updated Successfully.\n")
+                elif(adminChoice == 1):
+                    startTime = 6 + showMenu("WHEN WOULD YOU LIKE THE CLASS TO START (Class will go from this time to 2 hours ahead)?", ["06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"])
+                    endTime = startTime + 2 # Calculate class end time            
+                    curs.execute("UPDATE Classes SET start_time = %s, end_time = %s WHERE class_id = %s",(str(startTime) + ":00", str(endTime) + ":00", classID))
+                    print("Class Updated Successfully.\n")
+                elif(adminChoice == 2):
+                    className = input("Please enter the new class name: ")
+                    curs.execute("UPDATE Classes SET class_name = %s WHERE class_id = %s", (className, classID))
+                    print("Class Updated Successfully.\n")
+                else:
+                    print("Invalid Input.")
+                conn.commit()
+            else:
+                print("This class does not exist.")
     else:
         weekDay = ""
         choice = showMenu("WHICH DAY WOULD YOU LIKE THE CLASS TO BE ON?", ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"])
@@ -551,7 +542,7 @@ def updateClassSched(conn, curs):
         className = input("ENTER THE NAME OF THE CLASS: ")
             
         curs.execute("INSERT INTO Classes (class_id, class_day, start_time, end_time, class_name) VALUES (DEFAULT, '" + weekDay + "', '" + str(startTime) + ":00', '" + str(endTime) + ":00', '" + className + "')")
-
+        conn.commit()
 
 # Function to allow the admin to process a payment and show the receipt
 def processPayments(conn, curs):
