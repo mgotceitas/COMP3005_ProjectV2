@@ -1,5 +1,5 @@
 import psycopg
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 continueProgram = True
 userChoice = 0
@@ -302,7 +302,6 @@ def manageTrainerSchedule(conn, curs, trainerID):
         # Insert availability and commit to database
         curs.execute("INSERT INTO Availabilities (availability_id, trainer_id, day_of_week, start_time, end_time) VALUES (DEFAULT, " + trainerID + ", '" + weekDay + "', '" + str(startTime) + ":00', '" + str(endTime) + ":00')")
         conn.commit()
-
 # Shows all bookings in a formatted manner
 def showBookings(bookings):
     print("HERE ARE ALL THE BOOKINGS:")
@@ -328,15 +327,19 @@ def manageRoomBookings(conn, curs):
     adminChoice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Create A Booking", "Remove A Booking", "Show all Bookings", "Confirm/Edit A Booking"])
     if(adminChoice == 0):
         # Creates a booking depending on what the user inputs
-        bookingDate = input("Please enter the date of the booking (YYYY-mm-dd):")
-        startTime = input("Please enter starting time of the booking (HH:MM:SS):")
-        endTime = input("Please enter the end time of the booking (HH:MM:SS):")
-        roomID = input("Please enter which room you would like to book\n(assuming admin knows the number of the room\nex. to book room 4 admin would type '4'):")
-        classID = input("Please enter the class ID:")
+        bookingDate = input("Please enter the date of the booking (YYYY-mm-dd): ")
+        startTime = input("Please enter starting time of the booking (HH:MM:SS): ")
+        endTime = input("Please enter the end time of the booking (HH:MM:SS): ")
+        roomID = input("Please enter which room you would like to book: ")
+        classID = input("Please enter the class ID: ")
         # Inserts the information into the table as a new tuple
-        curs.execute("INSERT INTO RoomBooking (room_booking_id, start_time, end_time, booking_date, booking_status, room_id, class_id) VALUES (DEFAULT, '%s', '%s', '%s', '%s', %s, %s)" % (startTime, endTime, bookingDate, "pending",roomID, classID))
-        conn.commit()
-        print("Booking created successfully.\n")
+        try: 
+            curs.execute("INSERT INTO RoomBooking (room_booking_id, start_time, end_time, booking_date, booking_status, room_id, class_id) VALUES (DEFAULT, '%s', '%s', '%s', '%s', %s, %s)" % (startTime, endTime, bookingDate, "pending",roomID, classID))
+        except:
+            print("\nBooking Not added due to invalid input.\n")
+        else:
+            conn.commit()
+            print("\nBooking created successfully.\n")
     elif(adminChoice == 1):
         # Removes a tuple from the table depending on the admin input
         bookingID = input("Please enter the booking ID you would like to remove: ")
@@ -386,14 +389,156 @@ def manageRoomBookings(conn, curs):
     else:
         print("Invalid input.")
 
+# Function to show all the equipment in a formatted manner
+def showEquipment(equipmentList):
+    print("Equipment List:")
+    print("ID  |  Name              | Installation Date | Last Maintenance Date | Next Maintenance Date | Status")
+    for equipment in equipmentList:
+        installDate = equipment[2].strftime("%Y-%m-%d")
+        lastMainDate = equipment[3].strftime("%Y-%m-%d")
+        nextMainDate = equipment[4].strftime("%Y-%m-%d")
+        print("{:<3} | {:<18} | {:<17} | {:<21} | {:<21} | {:<10}".format(equipment[0], equipment[1], installDate, lastMainDate, nextMainDate, equipment[5]))
+
 def monitorEquipment(conn, curs):
-    print("adsa")
+    # Create list of equipment for the show function
+    curs.execute("SELECT * FROM Equipment")
+    equipmentList = curs.fetchall()
+    showEquipment(equipmentList)
+    adminChoice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Add Equipment", "Remove Equipment", "Update Equipment", "Show all Equipment"])
+    if(adminChoice == 0):
+        # Retrieve information and insert into equipment table
+        equipmentName = input("Please enter the name of the equipment: ")
+        installationDate = str(date.today())
+        lastMainDate = str(date.today())
+        nextMainDate = str(date.today()+ timedelta(days = 365))
+        status = "Good"
+        curs.execute("INSERT INTO Equipment(equipment_name, installation_date, last_maintenance_date, next_maintenance_date, status) VALUES (%s, %s, %s, %s, %s)",(equipmentName, installationDate, lastMainDate, nextMainDate, status))
+        conn.commit()
+    elif(adminChoice == 1):
+        # Deletes equipment from table based on user input
+        equipmentID = input("Please enter the ID of the equipment you would like to remove: ")
+        curs.execute("SELECT equipment_id FROM Equipment WHERE equipment_id =" + equipmentID)
+        equipment = curs.fetchone()
+        if equipment:
+            curs.execute("DELETE FROM Equipment WHERE equipment_id=" + equipmentID)
+            conn.commit()
+            print("The equipment has been removes successfully.")
+        else:
+            print("This equipment does not exist")
+    elif(adminChoice == 2):
+        # Updates the equipment status and maintenence date accordingly
+        equipmentID = input("Please enter the ID of the equipment you would like to update: ")
+        curs.execute("SELECT equipment_id FROM Equipment WHERE equipment_id =" + equipmentID)
+        equipment = curs.fetchone()
+        if equipment:
+            updateChoice = showMenu("CHOOSE AN OPTION:", ["Equipment Maintained", "Change Status"])
+            if(updateChoice == 0):
+                # Changes the maintenance date to today and sets the next maintenance date to one year later
+                curs.execute("UPDATE Equipment SET last_maintenance_date = %s, next_maintenance_date = %s, status = %s WHERE equipment_id = %s", (str(date.today()), str(date.today()+ timedelta(days = 365)), "Good", equipmentID))
+            elif(updateChoice == 1):
+                # Allows user to describe and update the status of equipment
+                statusIn = input("Please enter the status of the equipment: ")
+                curs.execute("UPDATE Equipment SET status = %s WHERE equipment_id = %s", (statusIn, equipmentID))                
+            conn.commit()
+            print("The equipment has been updated successfully.")
+        else:
+            print("This equipment does not exist.")
+    elif(adminChoice == 3):
+        showEquipment(equipmentList)
+    else:
+        print("Invalid Input")
 
+# functino to show classes in a formatted manner
+def showClasses(classes):
+    print("Class Schedule:")
+    print("ID | Trainer ID | Class Day | Start Time | End Time | Class Name")
+    for classInfo in classes:
+        startTime = classInfo[3].strftime("%H:%M:%S")
+        endTime = classInfo[4].strftime("%H:%M:%S")
+        print("{:<2} | {:<10} | {:<9} | {:<10} | {:<8} | {:<10}".format(classInfo[0], classInfo[1], classInfo[2], startTime, endTime, classInfo[5]))
+
+
+# Function to check availability of trainers
+def checkAvailability(curs, newTrainerId, newStartTime, newEndTime, newClassDay):
+    try:
+        # Check trainer's availability
+        curs.execute("SELECT * FROM Availabilities WHERE trainer_id = %s AND day_of_week = %s AND start_time <= %s AND end_time >= %s", (newTrainerId, newClassDay, newStartTime, newEndTime))
+        trainerAvailability = curs.fetchone()
+        if not trainerAvailability:
+            print("Trainer is not available at the specified time.")
+            return False
+
+        return True
+    except:
+        print("Error checking availability and conflicts:")
+        return False
+
+# Allows admin to update the schedule of the class
 def updateClassSched(conn, curs):
-    print("asdsadas")
+    curs.execute("SELECT * FROM Classes")
+    classes = curs.fetchall()
+    showClasses(classes)
+    classID = input("Please enter the class ID you would like to update: ")
+    curs.execute("SELECT class_id, trainer_id, class_day, start_time, end_time, class_name FROM Classes WHERE class_id =" + classID)
+    classUpdate = curs.fetchone()
 
+    # Gives options to user on what to update
+    if classUpdate:
+        adminChoice = showMenu("WHAT WOULD YOU LIKE TO UPDATE?", ["Trainer ID", "Start Time", "End Time", "Class Name"])
+        if(adminChoice == 0):
+            # Checks availability of the trainer and updates accordingly
+            trainerID = input("Please enter the new trainer ID: ")
+            if(checkAvailability(curs, trainerID, classUpdate[3], classUpdate[4], classUpdate[2])):
+                curs.execute("UPDATE Classes SET trainer_id = %s WHERE class_id = %s", (trainerID, classID))
+                print("Class Updated Successfully.\n")
+        elif(adminChoice == 1):
+            startTime = input("Please enter the new start time: ")
+            if(checkAvailability(curs, classUpdate[1], startTime, classUpdate[4], classUpdate[2])):
+                curs.execute("UPDATE Classes SET start_time = %s WHERE class_id = %s", (startTime, classID))
+                print("Class Updated Successfully.\n")
+        elif(adminChoice == 2):
+            endTime = input("Please enter the new end time: ")
+            if(checkAvailability(curs, classUpdate[1], classUpdate[3], endTime, classUpdate[2])):
+                curs.execute("UPDATE Classes SET end_time = %s WHERE class_id = %s", (endTime, classID))
+                print("Class Updated Successfully.\n")
+        elif(adminChoice == 3):
+            className = input("Please enter the new class name: ")
+            curs.execute("UPDATE Classes SET class_name = %s WHERE class_id = %s", (className, classID))
+            print("Class Updated Successfully.\n")
+        else:
+            print("Invalid Input.")
+        conn.commit()
+    else:
+        print("This class does not exist.")
+
+# Function to allow the admin to process a payment and show the receipt
 def processPayments(conn, curs):
-    print("shibal")
+    try:
+        # Receives information and adds to the table of bills accordingly
+        memberId = input("Please input member ID: ")
+        billCost = input("Enter bill cost: ")
+        paymentMethod = input ("Enter payment method:")
+        curs.execute("INSERT INTO Bills(bill_id, bill_cost, payment_method, paid_date, next_pay, member_id) VALUES (DEFAULT, %s, %s, %s, %s, %s) RETURNING *", (billCost, paymentMethod, str(date.today()), str(date.today() + timedelta(days = 30)), memberId))
+    except:
+        print("Invalid Input.")
+    else:
+        # Prints the receipt in the terminal
+        bill = curs.fetchone()
+        print("\n\nHERE IS YOUR BILL:")
+        print("Bill ID: {}".format(bill[0]))
+        print("Bill Cost: ${}".format(bill[1]))
+        print("Payment Method: {}".format(bill[2]))
+        if bill[3] is not None:
+            print("Paid Date: {}".format(bill[3]))
+        else:
+            print("Paid Date: Not paid yet")
+        if bill[4] is not None:
+            print("Next Payment Date: {}".format(bill[4]))
+        else:
+            print("Next Payment Date: Not scheduled yet")
+        print("Member ID: {} \n\n".format(bill[5]))
+    conn.commit()
+
 
 
 def viewMember(conn, curs):
