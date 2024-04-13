@@ -323,17 +323,13 @@ def manageTrainerSchedule(conn, curs, trainerID):
 # Shows all bookings in a formatted manner
 def showBookings(bookings):
     print("HERE ARE ALL THE BOOKINGS:")
-    print("Room Booking ID | Start Time | End Time | Booking Date | Booking Status | Room ID | Class ID")
+    print("Room Booking ID | Booking Status | Room ID | Class ID")
     print("-" * 80)
 
     # Iterate over the bookings and print each one
     for booking in bookings:
-        start_time = booking[1].strftime("%H:%M:%S")
-        end_time = booking[2].strftime("%H:%M:%S")
-        # Convert booking_date to YYYY-MM-DD format
-        booking_date = booking[3].strftime("%Y-%m-%d")
         # Print the formatted booking details
-        print("{:<14} | {:<10} | {:<9} | {:<12} | {:<14} | {:<7} | {:<8}".format(booking[0], start_time, end_time, booking_date, booking[4], booking[5], booking[6]))
+        print("{:<15} | {:<14} | {:<7} | {:<8}".format(booking[0], booking[1], booking[2], booking[3]))
     print("\n")
 
 def manageRoomBookings(conn, curs):
@@ -342,34 +338,26 @@ def manageRoomBookings(conn, curs):
     # Shows all bookings again using the previously made function
     showBookings(bookings)
 
-    adminChoice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Create A Booking", "Remove A Booking", "Show all Bookings", "Confirm/Edit A Booking"])
+    adminChoice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Create A Booking", "Show all Bookings", "Confirm/Cancel A Booking"])
     if(adminChoice == 0):
         # Creates a booking depending on what the user inputs
-        bookingDate = input("Please enter the date of the booking (YYYY-mm-dd): ")
-        startTime = input("Please enter starting time of the booking (HH:MM:SS): ")
-        endTime = input("Please enter the end time of the booking (HH:MM:SS): ")
         roomID = input("Please enter which room you would like to book: ")
         classID = input("Please enter the class ID: ")
+        
         # Inserts the information into the table as a new tuple
         try: 
-            curs.execute("INSERT INTO RoomBooking (room_booking_id, start_time, end_time, booking_date, booking_status, room_id, class_id) VALUES (DEFAULT, '%s', '%s', '%s', '%s', %s, %s)" % (startTime, endTime, bookingDate, "pending",roomID, classID))
+            curs.execute("INSERT INTO RoomBookings (room_booking_id, booking_status, room_id, class_id) VALUES (DEFAULT, '%s', %s, %s)" % ("Pending", roomID, classID))
         except:
             print("\nBooking Not added due to invalid input.\n")
         else:
             conn.commit()
             print("\nBooking created successfully.\n")
     elif(adminChoice == 1):
-        # Removes a tuple from the table depending on the admin input
-        bookingID = input("Please enter the booking ID you would like to remove: ")
-        curs.execute("DELETE FROM RoomBookings WHERE room_booking_id = " + bookingID)
-        conn.commit()
-        print("Booking Removed Successfully.\n")
-    elif(adminChoice == 2):
         # Shows all bookings again using the previously made function
-        curs.execute("SELECT * FROM RoomBooking")
+        curs.execute("SELECT * FROM RoomBookings")
         bookings = curs.fetchall()
         showBookings(bookings)
-    elif(adminChoice == 3):
+    elif(adminChoice == 2):
         # Asks for a booking id from the admin
         bookingID = input("Please enter the booking ID you would like to confirm/edit: ")
         curs.execute("SELECT * FROM RoomBookings WHERE room_booking_id = %s", (bookingID,))
@@ -377,31 +365,29 @@ def manageRoomBookings(conn, curs):
 
         if booking:
             # It extracts the relevant details
-            roomID = booking[5]
-            startTime = booking[1]
-            endTime = booking[2]
+            roomID = booking[2]
 
             # Asks whether the admin wants to cancel or confirm a booking
             newStatus = showMenu("What action would you like to perform?", ["Cancel A Booking", "Confirm A Booking"])
             if(newStatus == 0):
                 # Removes a tuple similar to one of the previous choices
-                curs.execute("DELETE FROM RoomBooking WHERE room_booking_id = " + bookingID)
+                curs.execute("DELETE FROM RoomBookings WHERE room_booking_id = " + bookingID)
                 conn.commit()
                 print("Booking Removed Successfully.\n")
             else:
                 # Otherwise...
-                newStatus = "confirmed"
+                newStatus = "Confirmed"
                 # First it checks for conflicts with confirmed bookings
-                curs.execute("SELECT * FROM RoomBooking WHERE room_booking_id = %s AND booking_status = 'confirmed' AND NOT (end_time <= %s OR start_time >= %s) AND room_booking_id != %s", (roomID, startTime, endTime, bookingID))
+                curs.execute("SELECT * FROM RoomBookings WHERE room_booking_id = " + bookingID + " AND booking_status = 'Confirmed'")
                 conflictingBookings = curs.fetchall()
                 
                 if conflictingBookings:
                     print("There are conflicting bookings. Status cannot be changed.")
                 else:
                     # Otherwise it updates booking status
-                    curs.execute("UPDATE RoomBooking SET booking_status = %s WHERE room_booking_id = %s", (newStatus, bookingID))
+                    curs.execute("UPDATE RoomBookings SET booking_status = %s WHERE room_booking_id = %s", (newStatus, bookingID))
                     conn.commit()
-                    print(f"Booking status updated to {newStatus} successfully.")
+                    print("Booking status updated to confirmed successfully.")
         else:
             print("Booking not found.")
     else:

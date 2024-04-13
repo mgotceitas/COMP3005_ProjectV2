@@ -60,8 +60,6 @@ CREATE TABLE Registrations (
 -- vincent code
 CREATE TABLE RoomBookings (
     room_booking_id SERIAL PRIMARY KEY,
-    start_time TIME NOT NULL,
-    end_time TIME NOT NULL,
     booking_date DATE NOT NULL,
     booking_status VARCHAR(255) NOT NULL,
     room_id INT NOT NULL,
