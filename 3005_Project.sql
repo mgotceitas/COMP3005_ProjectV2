@@ -40,10 +40,10 @@ CREATE TABLE Availabilities (
 
 CREATE TABLE Classes (
     class_id      SERIAL    PRIMARY KEY,
-    class_day       VARCHAR(255)    NOT NULL UNIQUE,
+    class_day       VARCHAR(255)    NOT NULL,
     start_time      TIME      NOT NULL,
     end_time      TIME      NOT NULL,
-    class_name      VARCHAR(255)    NOT NULL UNIQUE
+    class_name      VARCHAR(255)    NOT NULL
 );
 
 CREATE TABLE Registrations (
