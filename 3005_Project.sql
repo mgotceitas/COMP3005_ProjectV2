@@ -72,3 +72,24 @@ CREATE TABLE RoomBooking (
     class_id INT NOT NULL,
     FOREIGN KEY (class_id) REFERENCES Classes (class_id)
 );
+
+
+CREATE TABLE Equipment (
+    equipment_id SERIAL PRIMARY KEY,
+    equipment_name VARCHAR(255),
+    installation_date DATE,
+    last_maintenance_date DATE,
+    next_maintenance_date DATE,
+    status VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE Bills (
+    bill_id SERIAL PRIMARY KEY,
+    bill_cost float,
+    payment_method VARCHAR(255),
+    paid_date DATE,
+    next_pay DATE,
+    member_id INT NOT NULL,
+
+    FOREIGN KEY (member_id) REFERENCES Members (member_id)
+);
