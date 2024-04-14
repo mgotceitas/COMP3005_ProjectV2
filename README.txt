@@ -1,4 +1,4 @@
-LINK TO VIMEO VIDEO: https://vimeo.com/934416240?share=copy
+LINK TO YOUTUBE VIDEO: https://youtu.be/0thaSA1sW_0
 
 To start program:
 - Make sure you have psycog 3 installed
