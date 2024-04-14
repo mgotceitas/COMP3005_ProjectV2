@@ -7,6 +7,7 @@ userTable = ""
 userID = -1
 adminPassword = "iamadmin123"
 
+# Shows a list of options and returns input from the user
 def showMenu(title, options):
     choice = -1
 
@@ -23,6 +24,7 @@ def showMenu(title, options):
 
     return choice
 
+# Registers a new member
 def registerMember(conn, curs):
     # Get input from the user required to register them
     fn = input("What is your first name? ")
@@ -43,6 +45,7 @@ def registerMember(conn, curs):
 
     return memberID
 
+# Allows members to manage their profiles
 def manageMemberProfile(conn, curs, memberID):
     memberInput = ""
     choice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Change First Name", "Change Last Name", "Change Weight", "Change Goal Weight", "Change BMI"])
@@ -71,6 +74,7 @@ def manageMemberProfile(conn, curs, memberID):
     print("\nProfile successfully updated!\n")
     conn.commit() # Commit changes to database
 
+# Displays a member's dashboard
 def displayDashboard(conn, curs, memberID):
     # Get member's current weight
     curs.execute("SELECT current_weight FROM Members WHERE member_id = " + memberID)
@@ -78,7 +82,7 @@ def displayDashboard(conn, curs, memberID):
     # Get member's goal weight
     curs.execute("SELECT goal_weight FROM Members WHERE member_id = " + memberID)
     goalWeight = str(curs.fetchone()).strip("(),")
-    weightDiff = abs(int(currentWeight) - int(goalWeight)) # Calculate how far the member is from their goal weight
+    weightDiff = abs(float(currentWeight) - float(goalWeight)) # Calculate how far the member is from their goal weight
     # Get member's name
     curs.execute("SELECT first_name, last_name FROM Members WHERE member_id = " + memberID)
     name = str(curs.fetchone()).replace(",", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", "")    
@@ -108,6 +112,7 @@ def displayDashboard(conn, curs, memberID):
     curs.execute("SELECT bmi FROM Members WHERE member_id = " + memberID)
     print(name + "'s current bmi is: " + str(curs.fetchone()).strip("(),") + "\n")
 
+# Allows members to manage their schedule
 def manageMemberSchedule(conn, curs, memberID):
     choice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Schedule Personal Training Session", "Register For Group Fitness Class"])
     
@@ -136,13 +141,14 @@ def manageMemberSchedule(conn, curs, memberID):
             
             # Get every available trainer for the desired day/time of the week
             curs.execute("SELECT trainer_id FROM Availabilities WHERE day_of_week = '" + weekDay + "' AND start_time <= '" + str(startTime) + ":00' AND end_time >= '" + str(endTime) + ":00' GROUP BY trainer_id EXCEPT SELECT trainer_id FROM Sessions sessions WHERE start_time = '" + str(startTime) + ":00' OR start_time = '" + str(startTime + 1) + ":00' OR start_time = '" + str(startTime - 1) + ":00' GROUP BY trainer_id")
-            cursList = str(curs.fetchall()).replace("[", "").replace("]", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", "").replace(",", "").split(", ")
 
             if(curs.rowcount == 0):
                 # Tell user that there are no trainers available at the desired day/time
                 print("ERROR: NO TRAINERS AVAILABLE FOR THE DAY/TIME DESIRED")
+                print(cursList)
             else:
                 # Get user's desired trainer that is available
+                cursList = str(curs.fetchall()).replace("[", "").replace("]", "").replace("', '", " ").replace("(", "").replace(")", "").replace("'", "").replace(",", "").split(", ")
                 trainerList = []
                 for index, element in enumerate(cursList):
                     curs.execute("SELECT first_name, last_name FROM Trainers WHERE trainer_id = " + cursList[index])
@@ -275,6 +281,7 @@ def manageMemberSchedule(conn, curs, memberID):
                 curs.execute("INSERT INTO Registrations (registration_id, class_id, member_id) VALUES (DEFAULT, " + classID + ", " + memberID + ")")
                 conn.commit()
 
+# Allows trainers to manage their schedule
 def manageTrainerSchedule(conn, curs, trainerID):
     choice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Remove Availability", "Add Availability"])
     
@@ -320,6 +327,7 @@ def manageTrainerSchedule(conn, curs, trainerID):
         # Insert availability and commit to database
         curs.execute("INSERT INTO Availabilities (availability_id, trainer_id, day_of_week, start_time, end_time) VALUES (DEFAULT, " + trainerID + ", '" + weekDay + "', '" + str(startTime) + ":00', '" + str(endTime) + ":00')")
         conn.commit()
+        
 # Shows all bookings in a formatted manner
 def showBookings(bookings):
     print("HERE ARE ALL THE BOOKINGS:")
@@ -332,6 +340,7 @@ def showBookings(bookings):
         print("{:<15} | {:<14} | {:<7} | {:<8}".format(booking[0], booking[1], booking[2], booking[3]))
     print("\n")
 
+# Allows admins to manage rooms
 def manageRoomBookings(conn, curs):
     curs.execute("SELECT * FROM RoomBookings")
     bookings = curs.fetchall()
@@ -403,6 +412,7 @@ def showEquipment(equipmentList):
         nextMainDate = equipment[4].strftime("%Y-%m-%d")
         print("{:<3} | {:<18} | {:<17} | {:<21} | {:<21} | {:<10}".format(equipment[0], equipment[1], installDate, lastMainDate, nextMainDate, equipment[5]))
 
+# Allows admins to edit and monitor equipment status
 def monitorEquipment(conn, curs):
     # Create list of equipment for the show function
     curs.execute("SELECT * FROM Equipment")
@@ -452,7 +462,7 @@ def monitorEquipment(conn, curs):
     else:
         print("Invalid Input")
 
-# functino to show classes in a formatted manner
+# Function to show classes in a formatted manner
 def showClasses(classes):
     print("Class Schedule:")
     print("ID | Class Day | Start Time | End Time | Class Name")
@@ -461,7 +471,7 @@ def showClasses(classes):
         endTime = classInfo[3].strftime("%H:%M:%S")
         print("{:<2} | {:<9} | {:<10} | {:<8} | {:<10}".format(classInfo[0], classInfo[1], startTime, endTime, classInfo[4]))
 
-# Allows admin to update the schedule of the class
+# Allows admin to update the schedule of the classes
 def updateClassSched(conn, curs):
     choice = showMenu("WHAT WOULD YOU LIKE TO DO?", ["Update Class", "Create Class"])
 
@@ -584,8 +594,7 @@ def processPayments(conn, curs):
         
     conn.commit()
 
-
-
+# Allows trainers to see member dashboards
 def viewMember(conn, curs):
     ln = input("What is the last name of the member who's profile you would like to view? ")
     # Get all members with the last name that was entered by the trainer
@@ -659,26 +668,15 @@ else:
             userID = input("What is your member ID? ")
             cursor.execute("SELECT * FROM Trainers WHERE trainer_id = " + userID)
             print("")
-    # VINCENT CODE!
+            
     elif(userChoice == 2):
         userTable = "Admin"
         # Take in the admin password to determin if user is an admin
-        userID = input("Please enter the admin password:\n")
+        password = input("Please enter the admin password:\n")
         # Shows all the admin functions and does them depending on user input
-        if(userID == adminPassword):
-            userChoice = showMenu("What would you like to do?", ["Manage Room Bookings", "Monitor Equipment Maintenence", "Update Class Schedule", "Billing and Payment Proccessing"])
-            if(userChoice == 0):
-                manageRoomBookings(connection, cursor)
-            elif(userChoice == 1):
-                monitorEquipment(connection, cursor)
-            elif(userChoice == 2):
-                updateClassSched(connection, cursor)
-            elif(userChoice == 3):
-                processPayments(connection, cursor)
-        else:
-            print("ERROR: Password does not match to admin password.")
+        while(password != adminPassword):
+            password = input("Please enter the admin password:\n")
 
-    
     while(continueProgram):
         # Run if user is a member
         if(userTable == "Members"):
